@@ -1,0 +1,64 @@
+// Для INotifyPropertyChanged
+public class ObservableObject : INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler PropertyChanged;
+    protected void SetProperty<T>(ref T field, T newValue, [System.Runtime.CompilerServices.CallerMemberName] string propertyName = null)
+    {
+        if (!Equals(field, newValue))
+        {
+            field = newValue;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+}
+
+// Для ICommand
+public class RelayCommand : ICommand
+{
+    private readonly Action<object> _execute;
+    private readonly Func<object, bool> _canExecute;
+    
+    public event EventHandler CanExecuteChanged
+    {
+        add { CommandManager.RequerySuggested += value; }
+        remove { CommandManager.RequerySuggested -= value; }
+    }
+
+    public RelayCommand(Action<object> execute, Func<object, bool> canExecute = null)
+    {
+        _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+        _canExecute = canExecute;
+    }
+
+    public bool CanExecute(object parameter)
+    {
+        return _canExecute?.Invoke(parameter) ?? true;
+    }
+
+    public void Execute(object parameter)
+    {
+        _execute(parameter);
+    }
+}
+
+// Конвертер для кнопки
+public class InvertBooleanConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+    {
+        if (value is bool b)
+        {
+            return !b;
+        }
+        return value;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+    {
+        if (value is bool b)
+        {
+            return !b;
+        }
+        return value;
+    }
+}
