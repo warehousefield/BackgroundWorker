@@ -1,0 +1,98 @@
+using Autodesk.Revit.DB;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Windows.Input;
+using Autodesk.Revit.UI;
+using System.Linq;
+
+public class MainViewModel : ObservableObject
+{
+    // Коллекция для элементов, автоматически обновляет UI
+    public ObservableCollection<string> ElementNames { get; } = new ObservableCollection<string>();
+
+    // Свойство для состояния загрузки
+    private bool _isLoading;
+    public bool IsLoading
+    {
+        get => _isLoading;
+        set => SetProperty(ref _isLoading, value);
+    }
+    
+    // Свойство для текста кнопки
+    public string ButtonText => IsLoading ? "Загрузка..." : "Загрузить элементы";
+
+    // Команда для кнопки
+    public ICommand LoadElementsCommand { get; }
+
+    private readonly BackgroundWorker _worker = new BackgroundWorker();
+    private readonly UIApplication _revitApp;
+
+    public MainViewModel(UIApplication revitApp)
+    {
+        _revitApp = revitApp;
+        
+        // Настройка BackgroundWorker
+        _worker.DoWork += Worker_DoWork;
+        _worker.RunWorkerCompleted += Worker_RunWorkerCompleted;
+
+        // Привязка команды
+        LoadElementsCommand = new RelayCommand(ExecuteLoadElements, CanExecuteLoadElements);
+    }
+
+    private bool CanExecuteLoadElements(object parameter)
+    {
+        return !_worker.IsBusy;
+    }
+
+    private void ExecuteLoadElements(object parameter)
+    {
+        // Запуск фоновой задачи
+        IsLoading = true;
+        ElementNames.Clear();
+        _worker.RunWorkerAsync();
+    }
+
+    // Этот метод выполняется в фоновом потоке
+    private void Worker_DoWork(object sender, DoWorkEventArgs e)
+    {
+        Document doc = _revitApp.ActiveUIDocument.Document;
+        List<string> names = new List<string>();
+
+        // Используем Revit API для сбора всех элементов.
+        // Это может быть долгая операция, поэтому она в фоновом потоке.
+        var elements = new FilteredElementCollector(doc)
+            .WhereElementIsNotElementType()
+            .ToElements();
+
+        foreach (var element in elements)
+        {
+            names.Add(element.Name);
+        }
+
+        // Передаем результат в RunWorkerCompleted
+        e.Result = names;
+    }
+
+    // Этот метод выполняется в UI-потоке после завершения Worker_DoWork
+    private void Worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+    {
+        if (e.Error != null)
+        {
+            // Обработка ошибок
+            TaskDialog.Show("Ошибка", $"Произошла ошибка: {e.Error.Message}");
+        }
+        else
+        {
+            // Получаем результат и обновляем ObservableCollection
+            var elementNames = e.Result as List<string>;
+            if (elementNames != null)
+            {
+                foreach (var name in elementNames)
+                {
+                    ElementNames.Add(name);
+                }
+            }
+        }
+        IsLoading = false;
+    }
+}
