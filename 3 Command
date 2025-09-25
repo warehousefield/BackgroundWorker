@@ -1,0 +1,26 @@
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.UI;
+using System.Windows;
+using System.Windows.Data;
+
+[Transaction(TransactionMode.Manual)]
+public class Command : IExternalCommand
+{
+    public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+    {
+        // Создаем ViewModel, передавая ему приложение Revit
+        var viewModel = new MainViewModel(commandData.Application);
+
+        // Создаем окно View и связываем его с ViewModel
+        var window = new MainWindow();
+        window.DataContext = viewModel;
+
+        // Также нужен конвертер, если его нет в ресурсах XAML
+        var invertBoolConverter = new InvertBooleanConverter();
+        window.Resources.Add("InvertBoolConverter", invertBoolConverter);
+
+        window.Show();
+
+        return Result.Succeeded;
+    }
+}
